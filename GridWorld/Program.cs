@@ -1,17 +1,19 @@
 ﻿// See https://aka.ms/new-console-template for more information
 
-using GridWorldGame;
+namespace GridWorldGame;
 
 public class Program
 {
-    public static async Task Main(string[] args)
+    public static async Task Main( string[] args )
     {
-        GridWorld g1 = new(15, 15, true);
-        await g1.StartAsync();
+        GridWorld g1 = new( 5, 5, true );
+        var g1Task = g1.StartAsync();
 
-        Console.WriteLine("Done!");
+        //GridWorld g2 = new( 15, 15, true );
+        //var g2Task = g2.StartAsync();
+
+        await Task.WhenAll( new Task[] { g1Task, /*g2Task*/ } );
+
+        Console.WriteLine( "Done!" );
     }
 }
-
-
-
