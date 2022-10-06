@@ -1,5 +1,4 @@
-﻿using GridWorld;
-using System.Diagnostics;
+﻿using System.Diagnostics;
 using System.Text;
 
 namespace GridWorldGame
@@ -27,7 +26,7 @@ namespace GridWorldGame
 
         // faster,less accuracy on larger grids
         // consider making a function of the gridsize
-        private const float LAMBDA = 0.0000005f;
+        private const float LAMBDA = 0.000005f;
 
         // print stats ever this many actions
         private const int CHECKPOINT = 100000;
@@ -36,6 +35,9 @@ namespace GridWorldGame
         private float _gammaDF = 0.90f;
 
         private readonly string _guid;
+        private int _obstaclePercent;
+        private Location _goalSpot = Location.Default;
+        private Location _playerSpot = Location.Default;
 
         public bool IsDoneRunning
         {
@@ -44,17 +46,48 @@ namespace GridWorldGame
 
         public bool ObstaclesEnabled { get; }
 
+        public int ObstaclePercent
+        {
+            get => _obstaclePercent;
+            set
+            {
+                _obstaclePercent = value is < 0 or > 100
+                    ? throw new ArgumentException( "Value must be between 0 and 100", nameof( ObstaclePercent ) )
+                    : value;
+            }
+        }
+
         public IEnumerable<Location> Obstacles { get; private set; }
 
-        public Location GoalSpot { get; set; }
+        public Location GoalSpot
+        {
+            get => _goalSpot;
+            set
+            {
+                if (!IsValidGoalSpot(value))
+                {
+                    throw new ArgumentException( $"Invalid {nameof( GoalSpot )}, {GoalSpot}" );
+                }
+                _goalSpot = value;
+            }
+        }
 
-        public Location PlayerSpot { get; set; }
+        public Location PlayerSpot
+        {
+            get => _playerSpot;
+            set
+            {
+                if (!IsValidPlayerSpot( value ))
+                {
+                    throw new ArgumentException( $"Invalid {nameof( PlayerSpot )}, {PlayerSpot}" );
+                }
+                _playerSpot = value;
+            }
+        }
 
         public int Rows => Board.GetLength( 0 );
 
         public int Columns => Board.GetLength( 1 );
-
-        public Randomizer Randomizer { get; } = new Randomizer();
 
         public GridWorld( int rowSize, int colSize, bool enableObstacles )
         {
@@ -66,13 +99,17 @@ namespace GridWorldGame
             _guid = Guid.NewGuid().ToString( "D" )[..5];
 
             Board = new Tile[rowSize, colSize];
+
             ObstaclesEnabled = enableObstacles;
             Obstacles = enableObstacles ? GetObstacles() : Enumerable.Empty<Location>();
 
             InitBoard();
 
-            ResetPlayerPosition();
-            ResetGoalPosition();
+            if (PlayerSpot == Location.Default)
+            { ResetPlayerPosition(); }
+
+            if (GoalSpot == Location.Default)
+            { ResetGoalPosition(); }
         }
 
         private void InitBoard()
@@ -135,10 +172,14 @@ namespace GridWorldGame
             {
                 for (int j = 0; j < Columns; j++)
                 {
-                    //if (Randomizer.NextObstacle())
-                    if (random.Next( 0, 100 ) < 25)
+                    if (random.Next( 0, 100 ) < ObstaclePercent)
                     {
-                        obstacles.Add( new Location( i, j ) );
+                        var ob = new Location( i, j );
+
+                        if (IsValidObstacleSpot(ob))
+                        {
+                            obstacles.Add( ob );
+                        }
                     }
                 }
             }
@@ -156,6 +197,21 @@ namespace GridWorldGame
             return validSurrounds.All( loc => obstacles.Contains( loc ) );
         }
 
+        private bool IsValidObstacleSpot(Location location)
+        {
+            return location != GoalSpot && location != PlayerSpot;
+        }
+
+        private bool IsValidPlayerSpot( Location location )
+        {
+            return location != GoalSpot && !IsTrapped( location ) && !IsOnObstacle( location );
+        }
+
+        private bool IsValidGoalSpot( Location location )
+        {
+            return location != PlayerSpot && !IsTrapped( location ) && !IsOnObstacle( location );
+        }
+
         private void ResetPlayerPosition()
         {
             Random random = new();
@@ -163,7 +219,7 @@ namespace GridWorldGame
             {
                 PlayerSpot = new Location( random.Next( 0, Rows ), random.Next( 0, Columns ) );
             }
-            while (IsPlayerOnGoal() || IsTrapped( PlayerSpot ) || IsOnObstacle( PlayerSpot ));
+            while (!IsValidPlayerSpot( PlayerSpot ));
         }
 
         private void ResetGoalPosition()
@@ -176,7 +232,7 @@ namespace GridWorldGame
 
                 Board[GoalSpot.X, GoalSpot.Y] = new Tile( old.Weights, old.Elegibility, 1, old.Direction );
             }
-            while (IsPlayerOnGoal() || IsTrapped( GoalSpot ) || IsOnObstacle( GoalSpot ));
+            while (!IsValidGoalSpot( GoalSpot ));
         }
 
         private void ResetAllElegibility()
@@ -355,6 +411,8 @@ namespace GridWorldGame
             Console.WriteLine( $"Id: {_guid}" );
             Console.WriteLine( $"Board Dimensions: {Rows} x {Columns}" );
             Console.WriteLine( $"Obstacles Active: {ObstaclesEnabled}" );
+            Console.WriteLine( $"Obstacle Percent: {ObstaclePercent}" );
+            Console.WriteLine( $"Lambda: {LAMBDA}" );
 
             StringBuilder sbInitial = BuildCharacterBoard();
             Console.WriteLine( $"{sbInitial}\n" );
@@ -386,10 +444,12 @@ namespace GridWorldGame
             Console.WriteLine( $"Id: {_guid}" );
             Console.WriteLine( $"{sbFinish}\n" );
             Console.WriteLine( $"Solving took {sw.ElapsedMilliseconds / 1e3} seconds" );
+            Console.WriteLine( $"Lambda: {LAMBDA}");
             Console.WriteLine( $"Total Episodes: {episodes}" );
             Console.WriteLine( $"Total Actions: {actions}" );
             Console.WriteLine( $"Board Dimensions: {Rows} x {Columns}" );
             Console.WriteLine( $"Obstacles Active: {ObstaclesEnabled}" );
+            Console.WriteLine( $"Obstacle Percent: {ObstaclePercent}" );
             Console.WriteLine( $"PlayerSpot: {PlayerSpot}" );
             Console.WriteLine( $"GoalSpot: {GoalSpot}" );
             Console.WriteLine( $"------------------------------------" );
