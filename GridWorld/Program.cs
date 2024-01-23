@@ -6,11 +6,16 @@ public class Program
 {
     public static async Task Main( string[] args )
     {
-        GridWorld g1 = new( 10, 10, true )
+        GridWorld g1 = new( 15, 15 )
         {
-            ObstaclePercent = 45,
+            ObstaclePercent = 25,
+            ObstaclesEnabled = true,
+            //GoalSpot = new Location(20, 25 ),
+            //PlayerSpot = new Location( 14, 33),
         };
-        
+
+        g1.InitBoard();
+
         var g1Task = g1.StartAsync();
 
         //GridWorld g2 = new( 15, 15, true );

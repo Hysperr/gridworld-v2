@@ -56,12 +56,14 @@ namespace GridWorldGame
         }
     }
 
-    public struct Location
+    public readonly struct Location
     {
         public int X { get; }
         public int Y { get; }
 
         public Location(int x, int y) => (X, Y) = (x, y);
+
+        public static Location Default { get; } = new Location( 0, 0 );
 
         public IEnumerable<Location> GetSurroundings()
         {

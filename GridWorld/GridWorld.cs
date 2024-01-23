@@ -34,17 +34,18 @@ namespace GridWorldGame
         // if > .90 explore more early on, useful on larger grids
         private float _gammaDF = 0.90f;
 
-        private readonly string _guid;
+        private readonly Guid _id;
+        private bool _isInitialized;
         private int _obstaclePercent;
-        private Location _goalSpot = Location.Default;
-        private Location _playerSpot = Location.Default;
+        private Location _goalSpot;// = Location.Default;
+        private Location _playerSpot;// = Location.Default;
 
         public bool IsDoneRunning
         {
             get => _gammaDF < TERMINATE_VALUE;
         }
 
-        public bool ObstaclesEnabled { get; }
+        public bool ObstaclesEnabled { get; set; }
 
         public int ObstaclePercent
         {
@@ -57,16 +58,16 @@ namespace GridWorldGame
             }
         }
 
-        public IEnumerable<Location> Obstacles { get; private set; }
+        public IEnumerable<Location> Obstacles { get; private set; } = Enumerable.Empty<Location>();
 
         public Location GoalSpot
         {
             get => _goalSpot;
             set
             {
-                if (!IsValidGoalSpot(value))
+                if (!IsValidGoalSpot( value ))
                 {
-                    throw new ArgumentException( $"Invalid {nameof( GoalSpot )}, {GoalSpot}" );
+                    ResetGoalPosition();
                 }
                 _goalSpot = value;
             }
@@ -79,7 +80,7 @@ namespace GridWorldGame
             {
                 if (!IsValidPlayerSpot( value ))
                 {
-                    throw new ArgumentException( $"Invalid {nameof( PlayerSpot )}, {PlayerSpot}" );
+                    ResetPlayerPosition();
                 }
                 _playerSpot = value;
             }
@@ -89,30 +90,18 @@ namespace GridWorldGame
 
         public int Columns => Board.GetLength( 1 );
 
-        public GridWorld( int rowSize, int colSize, bool enableObstacles )
+        public GridWorld( int rowSize, int colSize )
         {
             if (rowSize < 1 || colSize < 1)
             {
                 throw new ArgumentException( "Cannot have empty rows or columns" );
             }
 
-            _guid = Guid.NewGuid().ToString( "D" )[..5];
-
+            _id = Guid.NewGuid();
             Board = new Tile[rowSize, colSize];
-
-            ObstaclesEnabled = enableObstacles;
-            Obstacles = enableObstacles ? GetObstacles() : Enumerable.Empty<Location>();
-
-            InitBoard();
-
-            if (PlayerSpot == Location.Default)
-            { ResetPlayerPosition(); }
-
-            if (GoalSpot == Location.Default)
-            { ResetGoalPosition(); }
         }
 
-        private void InitBoard()
+        public void InitBoard()
         {
             for (int i = 0; i < Rows; i++)
             {
@@ -121,6 +110,19 @@ namespace GridWorldGame
                     Board[i, j] = new Tile();
                 }
             }
+
+            Obstacles = ObstaclesEnabled
+                ? GetObstacles()
+                : Enumerable.Empty<Location>();
+
+
+            if (PlayerSpot == Location.Default)
+            { ResetPlayerPosition(); }
+
+            if (GoalSpot == Location.Default)
+            { ResetGoalPosition(); }
+
+            _isInitialized = true;
         }
 
         private bool IsInBounds( Location location )
@@ -408,11 +410,18 @@ namespace GridWorldGame
 
         public async Task StartAsync()
         {
-            Console.WriteLine( $"Id: {_guid}" );
+            if (!_isInitialized)
+            {
+                throw new InvalidOperationException( "Gridworld is not initialized. Did you initialize the board before starting the game?" );
+            }
+
+            Console.WriteLine( $"Id: {_id}" );
             Console.WriteLine( $"Board Dimensions: {Rows} x {Columns}" );
             Console.WriteLine( $"Obstacles Active: {ObstaclesEnabled}" );
             Console.WriteLine( $"Obstacle Percent: {ObstaclePercent}" );
             Console.WriteLine( $"Lambda: {LAMBDA}" );
+            Console.WriteLine( $"Player starting position {PlayerSpot}" );
+            Console.WriteLine( $"Goal starting position {GoalSpot}" );
 
             StringBuilder sbInitial = BuildCharacterBoard();
             Console.WriteLine( $"{sbInitial}\n" );
@@ -441,7 +450,7 @@ namespace GridWorldGame
 
             sw.Stop();
             StringBuilder sbFinish = BuildCharacterBoard();
-            Console.WriteLine( $"Id: {_guid}" );
+            Console.WriteLine( $"Id: {_id}" );
             Console.WriteLine( $"{sbFinish}\n" );
             Console.WriteLine( $"Solving took {sw.ElapsedMilliseconds / 1e3} seconds" );
             Console.WriteLine( $"Lambda: {LAMBDA}");
